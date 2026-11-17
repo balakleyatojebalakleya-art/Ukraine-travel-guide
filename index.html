@@ -32,6 +32,29 @@
 .secondary-link{background:#e7eee7;color:#1c5a43}
 .image-credit{font-size:11px;color:#66736c;margin-top:5px}
 @media(max-width:600px){.modal-grid{grid-template-columns:1fr}.modal-hero{height:220px}.modal-body{padding:20px 16px 26px}}
+
+/* Practical visitor information, galleries and food map */
+.visit-panel{margin-top:18px}
+.visit-panel .info-panel{height:100%}
+.gallery{position:relative;background:#101b16;border-radius:15px;overflow:hidden;margin:18px 0 8px}
+.gallery img{display:block;width:100%;height:clamp(240px,42vw,510px);object-fit:contain;background:#101b16}
+.gallery button{position:absolute;top:50%;transform:translateY(-50%);border:0;border-radius:50%;width:44px;height:44px;background:#ffffffdf;font-size:25px;cursor:pointer}
+.gallery .prev{left:12px}.gallery .next{right:12px}
+.gallery-count{position:absolute;bottom:12px;right:14px;background:#10251fce;color:white;border-radius:20px;padding:6px 11px;font-size:12px}
+.gallery-caption{font-size:12px;color:#dce6df;padding:8px 12px}
+.food-section{margin-top:52px;padding-top:35px;border-top:1px solid var(--line)}
+.food-layout{display:grid;grid-template-columns:minmax(270px,.9fr) minmax(0,1.4fr);gap:18px}
+.food-list{display:grid;gap:10px;max-height:590px;overflow:auto}
+.food-card{background:white;border:1px solid var(--line);border-radius:14px;padding:15px;cursor:pointer}
+.food-card:hover,.food-card.selected{border-color:#4f8067;box-shadow:0 6px 18px #193b2410}
+.food-card h3{margin:5px 0;font-size:16px}
+.food-card p{margin:5px 0;color:var(--muted);font-size:13px;line-height:1.5}
+.food-map{height:590px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+#foodMap{height:100%}
+.food-tag{font-size:10px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.08em}
+.food-disclaimer{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+@media(max-width:850px){.food-layout{grid-template-columns:1fr}.food-list{max-height:400px;grid-template-columns:repeat(2,minmax(0,1fr))}.food-map{height:420px}}
+@media(max-width:540px){.food-list{grid-template-columns:1fr}.food-map{height:360px}}
 </style>
 </head>
 <body>
@@ -42,6 +65,13 @@
 <div class="controls"><input id="search" class="search" type="search" placeholder="Пошук за назвою, містом або описом…" aria-label="Пошук локацій"><button class="filter active" data-cat="Усі">Усі місця</button><button class="filter" data-cat="Архітектура">Архітектура</button><button class="filter" data-cat="Історія">Історія</button><button class="filter" data-cat="Природа">Природа</button><button class="filter" data-cat="Замки">Замки</button></div>
 <div class="map-tools"><span>Перемикай звичайну карту та супутниковий знімок.</span><span>Супутник · OpenStreetMap</span></div><div class="layout"><div class="list" id="places"></div><div class="mapbox"><div id="map" aria-label="Інтерактивна карта туристичних місць України"></div></div></div>
 <p class="note">Карта використовує OpenStreetMap. Інформація має ознайомчий характер: перед поїздкою перевіряйте режим роботи, доступність локацій, безпекову ситуацію та актуальні обмеження.</p>
+
+<section class="food-section" id="food">
+ <div class="section-head"><div><div class="eyebrow" style="color:#397154">Смачна Україна</div><h2>Не знаєш, де поїсти?</h2><p>Добірка відомих закладів у різних містах України. Обирай заклад або знаходь його на карті.</p></div></div>
+ <div class="controls"><input id="foodSearch" class="search" type="search" placeholder="Пошук закладу або міста…" aria-label="Пошук закладів"><button class="filter active" data-foodcat="Усі">Усі міста</button><button class="filter" data-foodcat="Київ">Київ</button><button class="filter" data-foodcat="Львів">Львів</button><button class="filter" data-foodcat="Одеса">Одеса</button><button class="filter" data-foodcat="Інші міста">Інші міста</button></div>
+ <div class="food-layout"><div class="food-list" id="foodList"></div><div class="food-map"><div id="foodMap" aria-label="Карта ресторанів України"></div></div></div>
+ <p class="food-disclaimer">Це редакційна добірка відомих закладів, а не рейтинг і не підтвердження, що заклад відкритий саме зараз. Орієнтовний бюджет вказаний на одну людину без алкоголю й може змінюватися. Перед візитом перевіряй актуальні години, меню, ціни, відгуки та безпекову ситуацію за посиланнями на Google Maps.</p>
+</section>
 <section class="feature"><div><div class="eyebrow" style="color:#397154">Плануй відповідально</div><h2>Україна варта відкриттів</h2><p>Починай із перевірки безпекової ситуації та офіційних повідомлень місцевої влади. Не відвідуй закриті території, прикордонні зони й місця, де діють обмеження.</p></div><a href="https://www.dsns.gov.ua/" target="_blank" rel="noopener">Сайт ДСНС ↗</a></section>
 </main>
 <div class="modal-backdrop" id="detailModal" role="dialog" aria-modal="true" aria-label="Детальна інформація про місце"><article class="detail-modal"><button class="modal-close" id="modalClose" aria-label="Закрити">×</button><img class="modal-hero" id="modalImage" alt=""><div class="modal-body" id="modalBody"></div></article></div>
@@ -115,15 +145,62 @@ document.getElementById('search').addEventListener('input',e=>{query=e.target.va
 document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');category=b.dataset.cat;render()}));
 render();loadRealPhotos();setTimeout(()=>map.invalidateSize(),250);
 
+const eateries=[
+{name:"Канапа",city:"Київ",lat:50.4597,lon:30.5167,cuisine:"Сучасна українська кухня",price:"≈ 900–1 800 грн/особу",query:"Kanapa restaurant Kyiv"},
+{name:"100 років тому вперед",city:"Київ",lat:50.4508,lon:30.5164,cuisine:"Авторська українська кухня",price:"≈ 1 200–2 200 грн/особу",query:"100 років тому вперед ресторан Київ"},
+{name:"Криївка",city:"Львів",lat:49.8418,lon:24.0316,cuisine:"Українська / тематична кухня",price:"≈ 400–800 грн/особу",query:"Криївка ресторан Львів"},
+{name:"Ресторан Бачевських",city:"Львів",lat:49.8411,lon:24.0310,cuisine:"Галицька та європейська кухня",price:"≈ 600–1 200 грн/особу",query:"Ресторан Бачевських Львів"},
+{name:"Гасова лямпа",city:"Львів",lat:49.8430,lon:24.0310,cuisine:"Українська та європейська кухня",price:"≈ 400–800 грн/особу",query:"Гасова лямпа Львів"},
+{name:"Дача",city:"Одеса",lat:46.4350,lon:30.7665,cuisine:"Одеська та домашня кухня",price:"≈ 600–1 200 грн/особу",query:"Ресторан Дача Одеса"},
+{name:"Компот",city:"Одеса",lat:46.4846,lon:30.7350,cuisine:"Домашня кухня та десерти",price:"≈ 350–700 грн/особу",query:"Компот ресторан Одеса"},
+{name:"Деца у нотаря",city:"Ужгород",lat:48.6200,lon:22.2920,cuisine:"Закарпатська кухня",price:"≈ 400–800 грн/особу",query:"Деца у нотаря Ужгород"},
+{name:"Бограч",city:"Мукачево",lat:48.4420,lon:22.7180,cuisine:"Закарпатська кухня",price:"≈ 350–700 грн/особу",query:"Ресторан Бограч Мукачево"},
+{name:"Під липами",city:"Чернівці",lat:48.2910,lon:25.9350,cuisine:"Українська та європейська кухня",price:"≈ 400–850 грн/особу",query:"Під липами ресторан Чернівці"},
+{name:"Репортер",city:"Дніпро",lat:48.4647,lon:35.0462,cuisine:"Європейська кухня",price:"≈ 500–1 000 грн/особу",query:"Ресторан Репортер Дніпро"},
+{name:"Галушка",city:"Полтава",lat:49.5883,lon:34.5514,cuisine:"Традиційна полтавська кухня",price:"≈ 300–650 грн/особу",query:"Ресторан Галушка Полтава"}
+];
+let foodCategory='Усі',foodQuery='';
+const foodMap=L.map('foodMap',{scrollWheelZoom:false}).setView([49.0,31.2],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(foodMap);
+const foodMarkers=eateries.map(e=>{const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(e.query);return L.marker([e.lat,e.lon]).addTo(foodMap).bindPopup('<b>'+e.name+'</b><br>'+e.city+'<br>'+e.cuisine+'<br>'+e.price+'<br><a target="_blank" rel="noopener" href="'+url+'">Відгуки, фото та маршрут ↗</a>')});
+function renderFood(){const root=document.getElementById('foodList');root.innerHTML='';let count=0;eateries.forEach((e,i)=>{if(foodCategory==='Інші міста'&&['Київ','Львів','Одеса'].includes(e.city))return;if(foodCategory!=='Усі'&&foodCategory!=='Інші міста'&&e.city!==foodCategory)return;if(!(e.name+' '+e.city+' '+e.cuisine).toLocaleLowerCase('uk').includes(foodQuery))return;count++;const el=document.createElement('article');el.className='food-card';el.innerHTML='<div class="food-tag">'+e.city+'</div><h3>'+e.name+'</h3><p>'+e.cuisine+'</p><p><strong>'+e.price+'</strong></p><a class="action-link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(e.query)+'">Відгуки та фото ↗</a>';el.addEventListener('click',ev=>{if(ev.target.tagName==='A')return;foodMap.flyTo([e.lat,e.lon],14,{duration:.6});foodMarkers[i].openPopup();document.querySelectorAll('.food-card').forEach(x=>x.classList.remove('selected'));el.classList.add('selected')});root.appendChild(el)});if(!count)root.innerHTML='<div class="empty">Нічого не знайдено.</div>'}
+document.getElementById('foodSearch').addEventListener('input',e=>{foodQuery=e.target.value.toLocaleLowerCase('uk').trim();renderFood()});
+document.querySelectorAll('[data-foodcat]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-foodcat]').forEach(x=>x.classList.remove('active'));b.classList.add('active');foodCategory=b.dataset.foodcat;renderFood()}));
+renderFood();setTimeout(()=>foodMap.invalidateSize(),350);
+
+
+
+const visitorInfo={
+"Замок Паланок":{
+ hours:"Щодня орієнтовно 09:00–18:00",
+ prices:"Дорослий — близько 200 грн; студентський / пенсійний — 160 грн; дитячий — 130 грн. Екскурсія — близько 800 грн для групи до 20 осіб.",
+ updated:"Довідкові дані з публікації, оновленої 02.03.2026; перед поїздкою обов’язково уточни телефоном.",
+ phone:"+380 3131 32279",
+ source:"https://travels.in.ua/uk-UA/object/451/zamok-palanok",
+ official:"https://www.facebook.com/Palanokmuseum/",
+ address:"вул. Замкова Гора, Мукачево"
+}
+};
+const galleries={
+"Замок Паланок":[{"src":"https://commons.wikimedia.org/wiki/Special:FilePath/Замок%20Паланок%20Мукачеве.jpg?width=1800","caption":"Загальний вигляд замку"},{"src":"https://commons.wikimedia.org/wiki/Special:FilePath/Замок%20«Паланок»%20м.Мукачево%2001.jpg?width=1800","caption":"Фортеця з іншого ракурсу"},{"src":"https://commons.wikimedia.org/wiki/Special:FilePath/Замок%20із%20висоти%20пташиного%20польоту.JPG?width=1800","caption":"Вигляд із висоти"},{"src":"https://commons.wikimedia.org/wiki/Special:FilePath/Башні%20замку%20%22Паланок%22.jpg?width=1800","caption":"Башти та оборонні мури"}]
+};
+
 const modal=document.getElementById('detailModal');
 function mapsSearch(p,term){return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(term+' біля '+p.name+' '+p.city)}
+let galleryIndex=0;
 function openDetail(p){
- const img=document.getElementById('modalImage');img.src=p.photo||'';img.alt=p.name;
+ const gallery=galleries[p.name]||[{src:p.photo||'',caption:'Фото локації'}];
+ galleryIndex=0;
+ const img=document.getElementById('modalImage');img.src=gallery[0].src;img.alt=p.name;
  const booking='https://www.booking.com/searchresults.uk.html?ss='+encodeURIComponent(p.city+', Україна');
  const mapsHotel=mapsSearch(p,'готелі');
  const mapsFood=mapsSearch(p,'ресторани та кафе');
  const wikiUrl='https://uk.wikipedia.org/wiki/'+encodeURIComponent(p.wiki.replaceAll(' ','_'));
- document.getElementById('modalBody').innerHTML='<div class="badge">'+p.cat+' · '+p.city+'</div><h2>'+p.name+'</h2><p>'+p.long+'</p><p><strong>Що варто врахувати:</strong> перевіряйте графік роботи, вартість квитків, транспорт і безпекові обмеження безпосередньо перед поїздкою. Координати на карті можуть позначати орієнтовний центр локації.</p><div class="modal-grid"><section class="info-panel"><h3>🏨 Де зупинитися</h3><p>Переглянь готелі та помешкання поблизу цієї пам’ятки. Орієнтовний бюджет для стандартного готелю в популярних туристичних містах — близько 1 500–4 500 грн за ніч; у сезон, на вихідні та для вищої категорії ціна може бути значно більшою. Це загальний орієнтир, не тариф конкретного готелю.</p><a class="action-link" target="_blank" rel="noopener" href="'+mapsHotel+'">Готелі поруч ↗</a><a class="action-link secondary-link" target="_blank" rel="noopener" href="'+booking+'">Ціни й бронювання ↗</a></section><section class="info-panel"><h3>🍽️ Де поїсти</h3><p>Знайди кафе, кав’ярні та ресторани поруч із пам’яткою. На карті можна переглянути актуальні оцінки, відгуки, години роботи й відстань.</p><a class="action-link" target="_blank" rel="noopener" href="'+mapsFood+'">Кафе та ресторани поруч ↗</a><a class="action-link secondary-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='+p.lat+','+p.lon+'">Маршрут до пам’ятки ↗</a></section></div><p class="image-credit">Фото: Wikimedia / Wikipedia (якщо доступне). Детальніша довідка: <a href="'+wikiUrl+'" target="_blank" rel="noopener">стаття у Вікіпедії ↗</a>. Ціни й наявність місць потрібно перевіряти на дату поїздки.</p>';
+ const vi=visitorInfo[p.name];
+ const visitor=vi?'<section class="info-panel"><h3>🎟️ Відвідування</h3><p><strong>Графік:</strong> '+vi.hours+'</p><p><strong>Квитки:</strong> '+vi.prices+'</p><p><strong>Адреса:</strong> '+vi.address+'</p><p><strong>Телефон:</strong> '+vi.phone+'</p><p><small>'+vi.updated+'</small></p><a class="action-link" target="_blank" rel="noopener" href="'+vi.source+'">Джерело цін ↗</a><a class="action-link secondary-link" target="_blank" rel="noopener" href="'+vi.official+'">Сторінка музею ↗</a></section>':'<section class="info-panel"><h3>🎟️ Відвідування</h3><p>Графік роботи й вартість квитків можуть змінюватися. Перевір інформацію на офіційному ресурсі локації або в Google Maps перед поїздкою.</p><a class="action-link" target="_blank" rel="noopener" href="'+mapsSearch(p,'години роботи та квитки')+'">Перевірити актуальну інформацію ↗</a></section>';
+ document.getElementById('modalBody').innerHTML='<div class="badge">'+p.cat+' · '+p.city+'</div><h2>'+p.name+'</h2><p>'+p.long+'</p><div class="gallery"><img id="galleryImage" src="'+gallery[0].src+'" alt="'+p.name+' — '+gallery[0].caption+'"><button class="prev" id="galleryPrev" aria-label="Попереднє фото">‹</button><button class="next" id="galleryNext" aria-label="Наступне фото">›</button><span class="gallery-count" id="galleryCount">1 / '+gallery.length+'</span><div class="gallery-caption" id="galleryCaption">'+gallery[0].caption+' · фото Wikimedia Commons</div></div><div class="modal-grid visit-panel">'+visitor+'<section class="info-panel"><h3>🏨 Де зупинитися</h3><p>Переглянь готелі та помешкання поблизу. Орієнтовні ціни залежать від сезону, категорії й дати.</p><a class="action-link" target="_blank" rel="noopener" href="'+mapsHotel+'">Готелі поруч ↗</a><a class="action-link secondary-link" target="_blank" rel="noopener" href="'+booking+'">Ціни й бронювання ↗</a></section><section class="info-panel"><h3>🍽️ Де поїсти</h3><p>Переглянь актуальні оцінки, відгуки, години роботи та меню закладів поблизу.</p><a class="action-link" target="_blank" rel="noopener" href="'+mapsFood+'">Кафе та ресторани поруч ↗</a></section></div><p class="image-credit">Фото галереї: Wikimedia Commons. Детальніша довідка: <a href="'+wikiUrl+'" target="_blank" rel="noopener">стаття у Вікіпедії ↗</a>. Відгуки та актуальні оцінки: <a href="'+mapsFood+'" target="_blank" rel="noopener">Google Maps ↗</a>.</p>';
+ function showPhoto(n){galleryIndex=(n+gallery.length)%gallery.length;document.getElementById('galleryImage').src=gallery[galleryIndex].src;document.getElementById('galleryImage').alt=p.name+' — '+gallery[galleryIndex].caption;document.getElementById('galleryCount').textContent=(galleryIndex+1)+' / '+gallery.length;document.getElementById('galleryCaption').textContent=gallery[galleryIndex].caption+' · фото Wikimedia Commons';}
+ document.getElementById('galleryPrev').addEventListener('click',()=>showPhoto(galleryIndex-1));document.getElementById('galleryNext').addEventListener('click',()=>showPhoto(galleryIndex+1));
  modal.classList.add('open');document.body.style.overflow='hidden';
 }
 function closeDetail(){modal.classList.remove('open');document.body.style.overflow=''}
