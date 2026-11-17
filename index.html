@@ -243,7 +243,44 @@ function openDetail(p){
  function showPhoto(n){galleryIndex=(n+gallery.length)%gallery.length;document.getElementById('galleryImage').src=gallery[galleryIndex].src;document.getElementById('galleryImage').alt=p.name+' — '+gallery[galleryIndex].caption;document.getElementById('galleryCount').textContent=(galleryIndex+1)+' / '+gallery.length;document.getElementById('galleryCaption').textContent=gallery[galleryIndex].caption+' · '+(gallery[galleryIndex].credit||'Wikimedia Commons');}
  document.getElementById('galleryPrev').addEventListener('click',()=>showPhoto(galleryIndex-1));document.getElementById('galleryNext').addEventListener('click',()=>showPhoto(galleryIndex+1));
  modal.classList.add('open');document.body.style.overflow='hidden';
+ loadSupplemental(p);
 }
+
+async function loadSupplemental(p){
+ const body=document.getElementById('modalBody');
+ const galleryEl=body.querySelector('.gallery');
+ const infoEl=body.querySelector('.visit-panel');
+ const nearbyExisting=body.querySelector('.nearby-columns');
+ const status=(msg)=>{let n=body.querySelector('.live-status');if(!n){n=document.createElement('p');n.className='nearby-note live-status';body.appendChild(n)}n.textContent=msg};
+ // Location-tagged Wikimedia Commons photos first; only use images geotagged near the attraction.
+ try{
+  const u='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=geosearch&ggscoord='+p.lat+'|'+p.lon+'&ggsradius=10000&ggsnamespace=6&ggslimit=12&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1800';
+  const r=await fetch(u); if(!r.ok)throw new Error('Фото тимчасово недоступні');
+  const d=await r.json();const pages=Object.values(d.query?.pages||{}).filter(x=>x.imageinfo?.[0]?.thumburl);
+  const imgs=pages.slice(0,5).map(x=>({src:x.imageinfo[0].thumburl,caption:x.title.replace(/^File:/,'').replaceAll('_',' '),credit:'Wikimedia Commons'}));
+  if(imgs.length){
+   const g=galleryEl;g.innerHTML='<img id="galleryImage" src="'+imgs[0].src+'" alt="'+p.name+'"><button class="prev" id="galleryPrev" aria-label="Попереднє фото">‹</button><button class="next" id="galleryNext" aria-label="Наступне фото">›</button><span class="gallery-count" id="galleryCount">1 / '+imgs.length+'</span><div class="gallery-caption" id="galleryCaption">'+imgs[0].caption+'</div>';
+   let ix=0;const show=n=>{ix=(n+imgs.length)%imgs.length;const im=document.getElementById('galleryImage');im.src=imgs[ix].src;im.alt=p.name+' — '+imgs[ix].caption;document.getElementById('galleryCount').textContent=(ix+1)+' / '+imgs.length;document.getElementById('galleryCaption').textContent=imgs[ix].caption+' · '+imgs[ix].credit};
+   document.getElementById('galleryPrev').onclick=()=>show(ix-1);document.getElementById('galleryNext').onclick=()=>show(ix+1);
+  } else {galleryEl.insertAdjacentHTML('beforeend','<div class="gallery-caption">Наразі не знайдено фото з геоміткою поблизу цієї локації. Перевір фото за посиланням на Wikimedia Commons.</div>')}
+ }catch(e){galleryEl.insertAdjacentHTML('beforeend','<div class="gallery-caption">Галерея тимчасово недоступна. Спробуй оновити картку пізніше.</div>')}
+ // Nearby POIs from OpenStreetMap / Overpass; no fabricated ratings or prices.
+ try{
+  const q='[out:json][timeout:25];(nwr(around:3000,'+p.lat+','+p.lon+')["tourism"~"^(hotel|motel|guest_house|hostel|bed_and_breakfast)$"];nwr(around:3000,'+p.lat+','+p.lon+')["amenity"~"^(restaurant|cafe|fast_food)$"];);out center tags;';
+  const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(q)});
+  if(!r.ok)throw new Error('OSM unavailable');
+  const d=await r.json();const els=d.elements||[];
+  const distance=(a,b)=>{const R=6371,rad=x=>x*Math.PI/180,dl=rad(b.lat-a.lat),dn=rad(b.lon-a.lon),z=Math.sin(dl/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(z))};
+  const normalized=els.map(x=>({tags:x.tags||{},lat:x.lat??x.center?.lat,lon:x.lon??x.center?.lon})).filter(x=>x.tags.name&&Number.isFinite(x.lat)&&Number.isFinite(x.lon)).map(x=>({...x,km:distance({lat:p.lat,lon:p.lon},x)}));
+  const hotels=normalized.filter(x=>/^(hotel|motel|guest_house|hostel|bed_and_breakfast)$/.test(x.tags.tourism||'')).sort((a,b)=>a.km-b.km).slice(0,4);
+  const food=normalized.filter(x=>/^(restaurant|cafe|fast_food)$/.test(x.tags.amenity||'')).sort((a,b)=>a.km-b.km).slice(0,4);
+  const card=(x,type)=>{const t=x.tags,kind=t.tourism||t.amenity;const addr=[t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(', ');const km=x.km<1?Math.round(x.km*1000)+' м':x.km.toFixed(1)+' км';const g='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x.tags.name+' '+p.city+' Україна');const hours=t.opening_hours?'Години за OSM: '+t.opening_hours:'Години роботи не зазначені в OpenStreetMap';return '<article class="nearby-card"><h4>'+x.tags.name+'</h4><div class="rating">'+(type==='hotel'?'🏨 Готель / проживання':'🍽️ '+(kind==='cafe'?'Кафе':kind==='fast_food'?'Швидке харчування':'Ресторан'))+'</div><p><strong>'+km+' від пам’ятки (по прямій)</strong></p><p>'+(addr||'Адреса не вказана в OpenStreetMap')+'</p><p>'+hours+'</p><p>Рейтинг і ціни не підставляємо без підтвердженого джерела.</p><a target="_blank" rel="noopener" href="'+g+'">Переглянути рейтинг, відгуки й ціни в Google Maps ↗</a></article>'};
+  const html='<div class="nearby-columns"><section class="nearby-column"><h3>🏨 Де зупинитися поблизу</h3><div class="nearby-grid">'+(hotels.length?hotels.map(x=>card(x,'hotel')).join(''):'<p>У відкритих даних OSM не знайдено готелів у радіусі 3 км.</p>')+'</div><p class="nearby-note">Джерело назв і розташування: OpenStreetMap. Відстань — по прямій, не маршрут. Натисни посилання, щоб перевірити актуальні оцінки, відгуки та ціни.</p></section><section class="nearby-column"><h3>🍽️ Де поїсти поблизу</h3><div class="nearby-grid">'+(food.length?food.map(x=>card(x,'food')).join(''):'<p>У відкритих даних OSM не знайдено кафе чи ресторанів у радіусі 3 км.</p>')+'</div><p class="nearby-note">Джерело назв і розташування: OpenStreetMap. Відстань — по прямій. Рейтинги та меню перевіряються за посиланням Google Maps, щоб не показувати вигадані оцінки.</p></section></div>';
+  if(nearbyExisting)nearbyExisting.outerHTML=html;else infoEl.insertAdjacentHTML('afterend',html);
+  status('Дані про найближчі заклади отримано з OpenStreetMap. Рейтинги та актуальні ціни відкриваються в Google Maps.');
+ }catch(e){if(!nearbyExisting)infoEl.insertAdjacentHTML('afterend','<p class="nearby-note">Не вдалося завантажити список найближчих готелів і закладів. Спробуй відкрити картку пізніше або скористайся пошуком Google Maps.</p>')}
+}
+
 function closeDetail(){modal.classList.remove('open');document.body.style.overflow=''}
 document.getElementById('modalClose').addEventListener('click',closeDetail);
 modal.addEventListener('click',e=>{if(e.target===modal)closeDetail()});
